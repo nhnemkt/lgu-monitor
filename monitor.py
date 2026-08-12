@@ -46,18 +46,25 @@ MOBILE_HEADERS = {
 
 
 # ── 분류 ──────────────────────────────────────
-def classify_ad(title, url):
+def classify_ad(title, url, keyword=""):
     t = (title or "").lower()
     u = (url   or "").lower()
+    k = (keyword or "").lower()
     is_lgu = any(d in u for d in BRAND_DOMAINS) or \
              any(kw.lower() in t for kw in BRAND_TITLES)
     if not is_lgu:
         return None
+    # 1차: 광고 제목/URL로 분류
     for kw in AD_TYPE_HOME:
         if kw.lower() in t: return "홈"
     for kw in AD_TYPE_MOBILE:
         if kw.lower() in t: return "모바일"
-    return "일반"
+    # 2차: 검색 키워드로 분류 (광고 제목에서 못 찾은 경우)
+    for kw in AD_TYPE_HOME:
+        if kw.lower() in k: return "홈"
+    for kw in AD_TYPE_MOBILE:
+        if kw.lower() in k: return "모바일"
+    return "홈"  # LGU+ 광고인데 분류 불가시 홈으로 기본값
 
 def format_rank(n, ad_type):
     if ad_type == "홈":     return f"(홈){n}위"
@@ -66,7 +73,7 @@ def format_rank(n, ad_type):
 
 
 # ── 파싱 ──────────────────────────────────────
-def parse_rank(html):
+def parse_rank(html, keyword=""):
     if not html:
         return "X"
     soup = BeautifulSoup(html, "html.parser")
@@ -87,7 +94,7 @@ def parse_rank(html):
         full_text = item.get_text(separator=" ", strip=True)
         lnk_a     = item.find("a", class_="lnk_head")
         url       = lnk_a.get("href", "") if lnk_a else ""
-        ad_type   = classify_ad(full_text, url)
+        ad_type   = classify_ad(full_text, url, keyword)
         if ad_type is not None:
             return format_rank(rank, ad_type)
     return "X"
@@ -120,7 +127,7 @@ def run():
         encoded = urllib.parse.quote(kw)
         html    = fetch(f"https://search.naver.com/search.naver?query={encoded}", PC_HEADERS, session)
         time.sleep(DELAY + random.uniform(0, 1))
-        rank    = parse_rank(html)
+        rank    = parse_rank(html, kw)
         results.setdefault(kw, {})["PC"] = rank
         print(rank)
 
@@ -130,7 +137,7 @@ def run():
         encoded = urllib.parse.quote(kw)
         html    = fetch(f"https://search.naver.com/search.naver?query={encoded}", MOBILE_HEADERS, session)
         time.sleep(DELAY + random.uniform(0, 1))
-        rank    = parse_rank(html)
+        rank    = parse_rank(html, kw)
         results.setdefault(kw, {})["모바일"] = rank
         print(rank)
 
