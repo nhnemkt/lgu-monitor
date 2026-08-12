@@ -153,7 +153,16 @@ def run():
     db["data"].setdefault(date_key, {})
     db["data"][date_key].setdefault(hour_key, {})
     for kw, ranks in results.items():
-        db["data"][date_key][hour_key][kw] = ranks
+        existing = db["data"][date_key][hour_key].get(kw, {})
+        merged = dict(existing)
+        for device, rank in ranks.items():
+            existing_rank = existing.get(device)
+            # 기존에 정상 데이터(X가 아닌)가 있으면 유지, 없거나 X면 새 값으로 업데이트
+            if existing_rank and existing_rank != "X":
+                merged[device] = existing_rank
+            else:
+                merged[device] = rank
+        db["data"][date_key][hour_key][kw] = merged
 
     with open(JSON_FILE, "w", encoding="utf-8") as f:
         json.dump(db, f, ensure_ascii=False, indent=2)
